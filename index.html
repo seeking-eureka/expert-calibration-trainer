@@ -1,0 +1,868 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Expert Calibration Trainer</title>
+<link rel="icon" type="image/svg+xml" href="./assets/favicon.svg">
+<meta name="description" content="When your experts say they're 90% sure, are they right 90% of the time? Answer risk and trivia questions in batches and see your calibration curve, Brier score, range hit rate, and what overconfidence does to a loss estimate.">
+<link rel="canonical" href="https://seeking-eureka.com/expert-calibration-trainer/">
+<!-- Link previews (Open Graph: LinkedIn, Facebook, Substack, Slack, iMessage) -->
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Seeking Eureka">
+<meta property="og:title" content="Expert Calibration Trainer">
+<meta property="og:description" content="When your experts say they're 90% sure, are they right 90% of the time? Calibration curves, Brier and log scores, range hit rates, and the cost of overconfidence.">
+<meta property="og:url" content="https://seeking-eureka.com/expert-calibration-trainer/">
+<meta property="og:image" content="https://seeking-eureka.com/expert-calibration-trainer/preview.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="Expert Calibration Trainer results dashboard showing a calibration curve, Brier score, range hit rate and cost of overconfidence">
+<!-- X / Twitter -->
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Expert Calibration Trainer">
+<meta name="twitter:description" content="When your experts say they're 90% sure, are they right 90% of the time? Calibration curves, Brier and log scores, range hit rates, and the cost of overconfidence.">
+<meta name="twitter:image" content="https://seeking-eureka.com/expert-calibration-trainer/preview.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+<link rel="stylesheet" href="userguide.css">
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>Expert Calibration Trainer</h1>
+      <p class="sub">When your experts say they're 90% sure, are they right 90% of the time?</p>
+    </div>
+    <div class="brand">
+      <a class="brand-logo" href="https://seeking-eureka.com/" target="_blank" rel="noopener" aria-label="Seeking Eureka home">
+        <img src="./assets/seeking-eureka-logo-reversed.svg" alt="Seeking Eureka" width="827" height="135">
+      </a>
+      <span class="tag mono">CALIBRATION · PROPER SCORING</span>
+    </div>
+  </header>
+
+  <div class="tabbar">
+    <nav class="tabs" role="tablist">
+      <button class="tab active" role="tab" aria-selected="true" data-tab="sim">Simulator</button>
+      <button class="tab" role="tab" aria-selected="false" data-tab="guide">Guide &amp; Math</button>
+    </nav>
+    <button type="button" class="ug-open-btn" data-userguide-open>
+      <svg viewBox="0 0 24 24" width="17" height="17" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3H20v15H6.5A2.5 2.5 0 0 0 4 20.5z"/><path d="M4 20.5A2.5 2.5 0 0 0 6.5 23H20v-5"/></svg>
+      User Guide
+    </button>
+  </div>
+
+  <!-- ================= SIMULATOR ================= -->
+  <main id="tab-sim" class="tabpanel">
+
+    <!-- ---------- SETUP ---------- -->
+    <section id="vSetup" class="view">
+      <div class="grid">
+        <div class="col-left">
+          <section class="card">
+            <div class="card-head">
+              <h2>Session Setup</h2>
+              <button class="link-btn danger" id="resetBtn">Reset defaults</button>
+            </div>
+            <div class="field">
+              <div class="flabel">Mode</div>
+              <div class="seg" role="group" aria-label="Mode">
+                <button class="chip on" data-mode="test">Take the test</button>
+                <button class="chip" data-mode="sim">Simulated expert</button>
+              </div>
+            </div>
+            <div class="field" id="personaRow" hidden>
+              <label class="flabel" for="inPersona">Simulated persona</label>
+              <select class="num" id="inPersona">
+                <option value="over">Overconfident</option>
+                <option value="calibrated">Well-calibrated</option>
+                <option value="under">Underconfident</option>
+              </select>
+              <p class="hint">The app answers every question as this expert would, then shows the results. No typing needed.</p>
+            </div>
+            <div class="ctrl-grid">
+              <label>Batches<input class="num" id="inBatches" inputmode="numeric"></label>
+              <label>Questions per batch<input class="num" id="inPer" inputmode="numeric"></label>
+            </div>
+            <label class="slider-row"><span>True/false share</span><input type="range" id="inShare" min="0" max="100" step="10" aria-label="True/false share"><span class="mono" id="shareVal"></span></label>
+            <div class="mix mono small" id="mixLine"></div>
+            <div class="field">
+              <div class="flabel">Range target</div>
+              <div class="seg" role="group" aria-label="Range target">
+                <button class="chip" data-target="0.8">80%</button>
+                <button class="chip on" data-target="0.9">90%</button>
+              </div>
+            </div>
+            <div class="field">
+              <div class="flabel">Categories</div>
+              <div class="seg wrapchips" role="group" aria-label="Categories" id="catChips"></div>
+            </div>
+            <div class="msgs" id="setupMsgs" aria-live="polite"></div>
+            <button class="play-btn big-btn" id="startBtn">Start session</button>
+          </section>
+
+          <section class="card">
+            <div class="card-head">
+              <h2>Question Bank</h2>
+              <span class="mono muted small" id="bankStatus">Loading…</span>
+            </div>
+            <div class="small muted" id="bankMix"></div>
+            <details class="weights" id="uploadBox">
+              <summary><span>Load your own questions</span><span class="mono muted">CSV</span></summary>
+              <div class="weights-body">
+                <p class="hint" style="margin-top:0">Use the same columns as the built-in bank. Only <span class="mono">id, type, question, answer</span> are required. Nothing leaves your browser.</p>
+                <input type="file" id="fileIn" accept=".csv,text/csv" class="file-in">
+                <div class="seg" role="group" aria-label="Upload behavior" style="margin-top:10px">
+                  <button class="chip on" data-upmode="add">Add to built-in bank</button>
+                  <button class="chip" data-upmode="replace">Replace built-in bank</button>
+                </div>
+                <div class="paste-row">
+                  <button class="link-btn accent" id="tplBtn">Download built-in bank as a template</button>
+                  <button class="play-btn paste-btn" id="loadBtn" disabled>Load file</button>
+                </div>
+                <div class="msgs" id="upMsgs" aria-live="polite"></div>
+              </div>
+            </details>
+            <button class="link-btn accent small-link" id="restoreBtn" hidden>Restore built-in bank only</button>
+          </section>
+        </div>
+
+        <div class="col-right">
+          <section class="card">
+            <div class="card-head"><h2>How a Session Works</h2></div>
+            <ol class="steps">
+              <li><span class="what">Answer a batch.</span> True/false statements get a confidence level from 50% (a coin flip) to 99%. Range questions get a low and high value you're 90% sure contains the answer.</li>
+              <li><span class="what">Review the batch.</span> See every answer, a one-line lesson, and the source. Then get one tip for the next batch.</li>
+              <li><span class="what">Repeat.</span> Each batch has the same mix of topics and difficulty, so any change in your results is you, not easier questions.</li>
+              <li><span class="what">Read your results.</span> Calibration curve, Brier and log scores, range hit rate, Winkler score, your trend across batches, and what your ranges would do to a loss estimate.</li>
+            </ol>
+          </section>
+          <section class="card">
+            <div class="card-head">
+              <h2>What Overconfidence Looks Like</h2>
+              <span class="muted small">Simulated overconfident expert, averaged over 10 sessions</span>
+            </div>
+            <svg id="demoChart" class="chart" viewBox="0 0 640 340" role="img" aria-label="Example calibration curve for an overconfident expert"></svg>
+            <div class="legend mono">
+              <span><i class="sw diag"></i>Perfect calibration</span>
+              <span><i class="sw dot"></i>True/false, by confidence</span>
+              <span><i class="sw dia"></i>Ranges</span>
+            </div>
+            <p class="hint">Points below the diagonal mean the expert was right less often than they claimed. Most people start here, especially on ranges.</p>
+          </section>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- QUESTION ---------- -->
+    <section id="vQuiz" class="view" hidden>
+      <div class="quiz">
+        <section class="card qcard">
+          <div class="qtop">
+            <span class="mono muted small" id="qPos"></span>
+            <span class="pill mono" id="qCat"></span>
+          </div>
+          <div class="pbar"><i id="qBar"></i></div>
+          <div class="qtype mono" id="qType"></div>
+          <p class="qtext" id="qText"></p>
+
+          <div id="qBinary" hidden>
+            <div class="tfrow" role="group" aria-label="Your answer">
+              <button class="tf" data-tf="1">True</button>
+              <button class="tf" data-tf="0">False</button>
+            </div>
+            <div class="flabel">How sure are you?</div>
+            <div class="conf-row" role="group" aria-label="Confidence" id="confRow"></div>
+          </div>
+
+          <div id="qInterval" hidden>
+            <p class="hint" id="qRangeHint" style="margin-top:0"></p>
+            <div class="range-grid">
+              <label>Low end<input class="num" id="inLo" inputmode="decimal" autocomplete="off"><span class="echo mono" id="echoLo"></span></label>
+              <span class="dash" aria-hidden="true">to</span>
+              <label>High end<input class="num" id="inHi" inputmode="decimal" autocomplete="off"><span class="echo mono" id="echoHi"></span></label>
+            </div>
+            <div class="mono small muted" id="qUnit"></div>
+          </div>
+
+          <div class="msgs" id="qMsgs" aria-live="polite"></div>
+          <div class="qfoot">
+            <span class="quit" id="quitWrap"><button class="link-btn danger" id="quitBtn">Quit session</button></span>
+            <button class="play-btn next-btn" id="nextBtn" disabled>Next</button>
+          </div>
+        </section>
+        <p class="hint center">Answers are revealed at the end of each batch. Press Enter to continue.</p>
+      </div>
+    </section>
+
+    <!-- ---------- BATCH REVIEW ---------- -->
+    <section id="vReview" class="view" hidden>
+      <div class="review">
+        <section class="card">
+          <div class="card-head">
+            <h2 id="rvTitle"></h2>
+            <button class="play-btn next-btn" id="rvNext"></button>
+          </div>
+          <div class="kpis kpis3" id="rvKpis"></div>
+          <div class="callout coach" id="rvTip"></div>
+        </section>
+        <section class="card">
+          <div class="card-head"><h2>Every Answer in This Batch</h2></div>
+          <div class="rv-list" id="rvList"></div>
+        </section>
+      </div>
+    </section>
+
+    <!-- ---------- RESULTS ---------- -->
+    <section id="vResults" class="view" hidden>
+      <div class="banner" id="simBanner" hidden></div>
+      <section class="card res-head">
+        <div>
+          <h2>Your Results</h2>
+          <p class="small muted" id="resMeta"></p>
+        </div>
+        <div class="res-actions">
+          <button class="chip" id="dlResp">Download answers (CSV)</button>
+          <button class="chip" id="dlSum">Download summary (CSV)</button>
+          <button class="play-btn" id="againBtn">New session</button>
+        </div>
+      </section>
+      <div class="grid">
+        <div class="col-left">
+          <section class="kpis" id="resKpis"></section>
+          <section class="kpi accent kpi-wide cost" id="costCard"></section>
+        </div>
+        <div class="col-right">
+          <section class="card">
+            <div class="card-head"><h2>Calibration Curve</h2><span class="muted small">Stated confidence vs. how often you were right</span></div>
+            <svg id="calChart" class="chart" viewBox="0 0 640 340" role="img" aria-label="Calibration curve"></svg>
+            <div class="legend mono">
+              <span><i class="sw diag"></i>Perfect calibration</span>
+              <span><i class="sw dot"></i>True/false, by confidence</span>
+              <span><i class="sw dia"></i>Ranges</span>
+            </div>
+          </section>
+          <section class="card">
+            <div class="card-head"><h2>Inside the Brier Score</h2><span class="muted small">True/false answers only</span></div>
+            <div id="brierBars"></div>
+          </section>
+          <section class="card">
+            <div class="card-head"><h2>Batch by Batch</h2></div>
+            <svg id="trendChart" class="chart" viewBox="0 0 640 260" role="img" aria-label="Results by batch"></svg>
+            <div class="legend mono">
+              <span><i class="sw conf"></i>True/false confidence</span>
+              <span><i class="sw acc"></i>True/false accuracy</span>
+              <span><i class="sw hit"></i>Range hit rate</span>
+              <span><i class="sw tgt"></i>Range target</span>
+            </div>
+          </section>
+          <section class="card">
+            <div class="card-head"><h2>Every Range vs. the Truth</h2><span class="muted small" id="stripNote"></span></div>
+            <svg id="stripChart" class="chart" viewBox="0 0 640 300" role="img" aria-label="Each range relative to the true answer"></svg>
+            <div class="legend mono">
+              <span><i class="sw zbox zg"></i>Caught the answer</span>
+              <span><i class="sw zbox zr"></i>Missed</span>
+              <span><i class="sw truth"></i>True answer</span>
+            </div>
+          </section>
+        </div>
+      </div>
+      <section class="card log-card">
+        <div class="card-head"><h2>Question Log</h2><span class="muted small">Click a row for the lesson and source.</span></div>
+        <div class="table-wrap">
+          <table class="log qlog">
+            <thead><tr><th>#</th><th>Batch</th><th>Question</th><th>Your answer</th><th>Truth</th><th>Result</th></tr></thead>
+            <tbody id="logBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </section>
+  </main>
+
+  <!-- ================= GUIDE ================= -->
+  <main id="tab-guide" class="tabpanel hidden">
+    <article class="guide">
+      <section class="card">
+        <h2 class="g">1. The Question This App Answers</h2>
+        <p>Every risk quantification program runs on expert estimates: how often an event happens, how much it costs, how likely a control is to fail. If those experts are overconfident, every model built on their numbers is precise and wrong. Calibration is the habit of matching your stated confidence to how often you turn out to be right. It can be measured, and it improves with practice and feedback.</p>
+        <p>An expert is <b>calibrated</b> if, across everything they say they're 70% sure of, they're right about 70% of the time, and if their 90% ranges catch the true answer about 90% of the time.</p>
+        <div id="guideYou" class="callout"></div>
+      </section>
+
+      <section class="card">
+        <h2 class="g">2. How a Session Works</h2>
+        <ul>
+          <li>A session is several batches of questions, 4 batches of 10 by default. The app draws them at random from the bank, giving each batch the same mix of categories and difficulty. Two questions about the same event never appear in one session.</li>
+          <li><b>True/false questions</b> ask you to pick True or False, then choose how sure you are: 50%, 60%, 70%, 80%, 90% or 99%. 50% means a pure guess.</li>
+          <li><b>Range questions</b> ask for a low and high value that you're 90% sure contains the answer (or 80%, if you change the target). You can type shorthand: 4.4M, 1.2B, 38K, 9.1%, or -37.63.</li>
+          <li>Answers are revealed only at the end of each batch. Seeing them one at a time tends to cause short-term swings that don't last.</li>
+          <li>After each batch you get the answers, a one-line lesson and a source for each, and one coaching tip chosen from your results.</li>
+        </ul>
+      </section>
+
+      <section class="card">
+        <h2 class="g">3. Turning Answers into Probabilities</h2>
+        <p>Each true/false answer is a probability that the statement is true. If you pick True at 80%, you've said P(true) = 0.80. If you pick False at 80%, you've said P(true) = 0.20. Every score for true/false questions uses that number <span class="mono">p</span> and the outcome <span class="mono">o</span> (1 if the statement was true, 0 if false).</p>
+        <div class="eq">p = c          if you answered True with confidence c
+p = 1 − c      if you answered False with confidence c</div>
+        <p>The calibration curve uses a folded view of the same answers. It groups them by the confidence you chose and plots how often your chosen answer was right. A point below the diagonal means you were right less often than you claimed.</p>
+      </section>
+
+      <section class="card">
+        <h2 class="g">4. The Brier Score and What's Inside It</h2>
+        <p>The Brier score is the average squared gap between what you said and what happened. Lower is better. A perfect, all-knowing forecaster scores 0. Answering 50% every time scores 0.25.</p>
+        <div class="eq">Brier = (1/N) Σ (pᵢ − oᵢ)²</div>
+        <p>Allan Murphy showed in 1973 that it splits exactly into three parts. Group the answers by the probability you gave, <span class="mono">p<sub>k</sub></span>, and let <span class="mono">ō<sub>k</sub></span> be how often the statement was true in group k, and <span class="mono">ō</span> the overall share of true statements:</p>
+        <div class="eq">Brier = Reliability − Resolution + Uncertainty
+
+Reliability = (1/N) Σₖ nₖ (pₖ − ōₖ)²    how far your stated probabilities sit from reality (lower is better)
+Resolution  = (1/N) Σₖ nₖ (ōₖ − ō)²     how well your answers separate true from false (higher is better)
+Uncertainty = ō (1 − ō)                  how hard the questions were to begin with; you can't change it</div>
+        <p><b>Reliability is calibration.</b> Resolution is knowledge: an expert who always says 50% is perfectly reliable but has zero resolution. Good experts are both reliable and discriminating.</p>
+        <p class="guide-note">With only 10 to 30 true/false answers, the reliability term is biased upward: even a perfectly calibrated expert will show some, simply from chance. Compare yourself with the well-calibrated simulated expert at the same session size.</p>
+      </section>
+
+      <section class="card">
+        <h2 class="g">5. The Log Score, and Why Confidence Stops at 99%</h2>
+        <p>The log score charges you the negative log of the probability you gave to what actually happened. Lower is better. Answering 50% every time scores ln 2 ≈ 0.693.</p>
+        <div class="eq">Log score = (1/N) Σ −ln(probability you gave the actual outcome)</div>
+        <p>It punishes confident mistakes far more than the Brier score does. Being wrong at 90% costs 2.30. Being wrong at 99% costs 4.61. Being wrong at 100% would cost infinity, wiping out every other answer in the session. That's why the highest choice is 99%.</p>
+        <div class="callout">Real experts are almost never entitled to 100%. Even well-known facts get misremembered, and questions get misread. If you're tempted to say 100%, 99% says nearly the same thing while leaving room for the error you haven't spotted.</div>
+      </section>
+
+      <section class="card">
+        <h2 class="g">6. Range Hit Rate, and Why Small Samples Matter</h2>
+        <p>The range hit rate is the share of your ranges that caught the true answer. For a 90% target, a calibrated expert lands near 90%. Untrained experts usually land well below that, because their ranges are too narrow.</p>
+        <p>With 24 ranges, the hit rate itself is uncertain. The app treats your true hit rate as unknown and updates a flat Beta(1, 1) prior with your hits <span class="mono">h</span> and misses <span class="mono">m</span>, the same Bayesian update used in the other Seeking Eureka apps:</p>
+        <div class="eq">True hit rate ~ Beta(1 + h, 1 + m)
+The card shows the middle 95% of that distribution.</div>
+        <p>If the whole 95% range sits below your target, you're very likely overconfident on ranges, not just unlucky.</p>
+      </section>
+
+      <section class="card">
+        <h2 class="g">7. The Winkler Score</h2>
+        <p>Hit rate alone rewards silly ranges: "between 1 and a trillion" always catches the answer. The Winkler score (Winkler, 1972) charges you the width of every range, plus a penalty when you miss, scaled by how much you missed by. For a range [L, U] at target 1 − α and true answer y:</p>
+        <div class="eq">Winkler = (U − L)
+        + (2/α)·(L − y)   if y is below your range
+        + (2/α)·(y − U)   if y is above your range</div>
+        <p>At a 90% target, α = 0.10, so every unit you miss by costs 20 units of width. Lower is better. The best score comes from ranges as narrow as your knowledge allows, and no narrower.</p>
+        <p><b>Putting different units on one scale.</b> A $5.5B question and a 9.1% question can't be averaged directly, so each range is scored on a common scale first:</p>
+        <ul>
+          <li>Log-scale questions (money, counts) are scored in orders of magnitude, log₁₀. A range of $1M to $10M has width 1.</li>
+          <li>Year questions are scored in decades. A range of 1990 to 2000 has width 1.</li>
+          <li>Other questions are scored relative to the size of the true answer. A range of 6% to 12% around a true 9.1% has width 0.66.</li>
+        </ul>
+        <p>The card shows the average score split into its width part and its miss-penalty part, so you can see which one is costing you.</p>
+      </section>
+
+      <section class="card">
+        <h2 class="g">8. The Cost of Overconfidence</h2>
+        <p>This card turns your range hit rate into a loss-estimate error. Suppose you gave a 90% range of $1M to $10M for an annual cyber loss, and loss models fit a lognormal to it, as FAIR-style tools do. If your 90% ranges really catch the answer only 60% of the time, your true uncertainty is wider than you stated.</p>
+        <div class="eq">Stated:  σ = ln(U/L) / (2·z₀.₉₅)            z₀.₉₅ = 1.645
+Actual:  σ = ln(U/L) / (2·z<sub>(1+h)/2</sub>)        h = your range hit rate
+1-in-20-year loss  = √(L·U) · exp(1.645·σ)
+1-in-100-year loss = √(L·U) · exp(2.326·σ)</div>
+        <p>At a 60% hit rate, the 1-in-20-year loss is about $30M instead of $10M, three times higher, and the 1-in-100-year loss nearly five times higher. Hit rates below 20% are floored at 20%, so a handful of misses can't send the number to infinity. If your hit rate is at or above your target, the card says so, and it shows how much your ranges may overstate the tail.</p>
+        <p class="guide-note">This assumes your ranges are centered correctly and only too narrow. Real expert errors also include bias, which would make the picture worse, not better.</p>
+      </section>
+
+      <section class="card">
+        <h2 class="g">9. Simulated Experts</h2>
+        <p>Simulated mode answers a full session as one of three personas, so you can explore the results without typing 40 answers:</p>
+        <ul>
+          <li><b>Well-calibrated:</b> confidence matches its actual chance of being right (86% on easy questions, 70% on medium, 56% on hard), and its ranges catch the answer at the target rate.</li>
+          <li><b>Overconfident:</b> claims about 24 points more confidence than it has at first, and its 90% ranges catch only 42% of answers in batch 1. It improves with each batch, to show what training looks like.</li>
+          <li><b>Underconfident:</b> claims 10 to 16 points too little and gives ranges wide enough to catch about 98.5% of answers.</li>
+        </ul>
+        <p>Simulated answers follow the same rules as yours and go through the same scoring code. Each run draws new questions and new random errors, so results vary.</p>
+      </section>
+
+      <section class="card">
+        <h2 class="g">10. Things to Try</h2>
+        <ul>
+          <li>Run the <b>Overconfident</b> simulated expert, then the <b>Well-calibrated</b> one. Compare the calibration curves, the Winkler width and penalty, and the cost card.</li>
+          <li>Run the <b>Underconfident</b> expert and look at the Winkler score. It almost never misses, yet it can score worse than the calibrated expert because its ranges are so wide.</li>
+          <li>Take the test yourself with a 90% target. On your next session, switch to 80%. Many people find 80% ranges easier to set honestly.</li>
+          <li>Try the <b>equivalent-bet test</b> on a range question: would you rather win $1,000 if the answer falls in your range, or win $1,000 on a spin with a 90% chance of paying? If you'd pick the spin, your range is too narrow.</li>
+          <li>Load your own questions, such as your firm's past incidents, and run a session for your team.</li>
+        </ul>
+        <h3 class="g3">Input rules</h3>
+        <ul>
+          <li>Batches run from 1 to 6, and questions per batch from 5 to 15. The true/false share runs from 0% to 100% in steps of 10%.</li>
+          <li>At least one category must be on, and the bank must hold enough questions of each type for the session. If it doesn't, the app tells you how many it has.</li>
+          <li>Range answers need both ends, with the low end below the high end. Money and count questions need values above 0.</li>
+          <li>Uploaded files need the columns <span class="mono">id, type, question, answer</span>. The type is <span class="mono">binary</span> or <span class="mono">interval</span>; binary answers are TRUE or FALSE. Optional columns: category, region, era, event_group, difficulty (easy, medium, hard), unit, scale (linear or log), explanation, source_name, source_url, source2_name, source2_url, verified_on, and score_scale (a custom divisor for the Winkler score). Rows with errors are skipped and listed.</li>
+        </ul>
+      </section>
+
+      <section class="card credits">
+        <h2 class="g">11. Sources &amp; Credits</h2>
+        <h3 class="g3">Scoring and calibration</h3>
+        <ul>
+          <li><b>Glenn W. Brier (1950), "Verification of Forecasts Expressed in Terms of Probability."</b> <span class="nowrap">Monthly Weather Review</span> 78(1): 1–3. The Brier score. <a href="https://doi.org/10.1175/1520-0493(1950)078%3C0001:VOFEIT%3E2.0.CO;2" target="_blank" rel="noopener">DOI link</a></li>
+          <li><b>Allan H. Murphy (1973), "A New Vector Partition of the Probability Score."</b> <span class="nowrap">Journal of Applied Meteorology</span> 12(4): 595–600. The reliability, resolution and uncertainty decomposition. <a href="https://doi.org/10.1175/1520-0450(1973)012%3C0595:ANVPOT%3E2.0.CO;2" target="_blank" rel="noopener">DOI link</a></li>
+          <li><b>Robert L. Winkler (1972), "A Decision-Theoretic Approach to Interval Estimation."</b> <span class="nowrap">Journal of the American Statistical Association</span> 67(337): 187–191. The interval score used here. <a href="https://scholars.duke.edu/publication/1259805" target="_blank" rel="noopener">Duke Scholars</a></li>
+          <li><b>Tilmann Gneiting and Adrian E. Raftery (2007), "Strictly Proper Scoring Rules, Prediction, and Estimation."</b> <span class="nowrap">Journal of the American Statistical Association</span> 102(477): 359–378. Why the Brier, log and interval scores reward honest answers. <a href="https://doi.org/10.1198/016214506000001437" target="_blank" rel="noopener">DOI link</a></li>
+          <li><b>Sarah Lichtenstein, Baruch Fischhoff, and Lawrence D. Phillips (1982), "Calibration of Probabilities: The State of the Art to 1980."</b> In <span class="nowrap">Judgment under Uncertainty: Heuristics and Biases</span>, Cambridge University Press. The classic review of overconfidence. <a href="https://www.cambridge.org/core/books/abs/judgment-under-uncertainty/calibration-of-probabilities-the-state-of-the-art-to-1980/9F0C9EC2997AEEB6DDDB304C2F935A16" target="_blank" rel="noopener">Cambridge Core</a></li>
+          <li><b>Douglas W. Hubbard (2014), <span class="nowrap">How to Measure Anything</span>, 3rd ed., Chapter 5, "Calibrated Estimates."</b> Wiley. The calibration-training approach, including the equivalent-bet test. <a href="https://www.oreilly.com/library/view/how-to-measure/9781118836446/c05.xhtml" target="_blank" rel="noopener">O'Reilly</a></li>
+        </ul>
+        <h3 class="g3">Notes</h3>
+        <ul>
+          <li><b>Question bank.</b> Every built-in answer was checked against the source linked in its row, on the date shown in the CSV. Figures for recent events can be revised; the sources record what was reported.</li>
+          <li><b>Where this stops.</b> V1 trains individual calibration on questions with known answers. It doesn't weight or combine experts, as structured methods such as Cooke's Classical Model and the SHELF and IDEA protocols do.</li>
+          <li><b>Educational use only.</b> It's a training tool, not a validated assessment of any individual, and not investment, insurance, or regulatory advice.</li>
+          <li><b>Code and fonts.</b> All math and charts are original vanilla JavaScript and SVG, with no third-party libraries. The fonts are Inter and JetBrains Mono, used under the SIL Open Font License.</li>
+        </ul>
+      </section>
+    </article>
+  </main>
+
+  <footer class="foot muted small">Scores: Brier (1950) with Murphy's (1973) decomposition, the log score with confidence capped at 99%, range hit rate with a Beta(1+h, 1+m) 95% range, and the Winkler (1972) interval score on a common scale. Cost of overconfidence assumes a lognormal fitted to a stated range.<br>For education only; not a validated assessment or investment advice. Your answers stay in your browser. Built by Patrick Lefler · Seeking Eureka. See Guide &amp; Math, section 11, for sources.</footer>
+</div>
+<div class="ctip mono" id="chartTip" hidden></div>
+<script src="calib.js"></script>
+<script src="app.js"></script>
+<script src="userguide.js" defer data-src="UserGuide.md" data-fallback="https://github.com/seeking-eureka/expert-calibration-trainer/blob/main/UserGuide.md"></script>
+<script data-pplx-inline-edit>
+(function () {
+  if (window === window.top) return;
+
+  const allowedParentOrigins = ["https://www.perplexity.ai","https://perplexity.ai","https://testing.perplexity.ai","https://staging.perplexity.ai","https://*.preview.i.perplexity.ai","http://perplexity.localhost","http://localhost:1420","http://127.0.0.1:1420","http://localhost:3000","http://127.0.0.1:3000","http://localhost:5173","http://127.0.0.1:5173"];
+  const MAX_FONT_BYTES = 500 * 1024;
+  const MAX_TOTAL_FONT_BYTES = 2 * 1024 * 1024;
+  const DEFAULT_LINE_HEIGHT = 16;
+  let scrollForwarding = false;
+  let scrollRaf = 0;
+  let trustedTopOrigin = null;
+
+  // Allow entries like "https://*.preview.i.perplexity.ai" — the wildcard
+  // matches a single DNS label (no dots), so "https://*.foo" cannot stretch
+  // across multiple labels.
+  function matchesAllowedOrigin(origin) {
+    if (!origin) return false;
+    for (const entry of allowedParentOrigins) {
+      if (!entry.includes("*")) {
+        if (entry === origin) return true;
+        continue;
+      }
+      const pattern = new RegExp(
+        "^" +
+          entry.replace(/[.+?^${}()|[\]\\]/g, "\\$&").replace(/\*/g, "[^.]+") +
+          "$",
+      );
+      if (pattern.test(origin)) return true;
+    }
+    return false;
+  }
+
+  // Trust decision: when the sender is same-origin-visible (event.origin is a
+  // real origin like https://www.perplexity.ai) we trust event.origin directly.
+  // When event.origin is "null" (opaque broker srcdoc), we fall back to the
+  // broker's stamped `parentOrigin` to identify the top window. The fallback
+  // is claim-only — we rely on the browser's native `targetOrigin` enforcement
+  // on the response path (see postToTrustedTop) to ensure replies can't be
+  // delivered to anyone but the actual top window of that claimed origin.
+  function getTrustedParentOrigin(event) {
+    const forwardedParentOrigin =
+      typeof event.data.parentOrigin === "string" ? event.data.parentOrigin : null;
+    const parentOrigin = event.origin === "null" ? forwardedParentOrigin : event.origin;
+    return matchesAllowedOrigin(parentOrigin) ? parentOrigin : null;
+  }
+
+  // All responses go to window.top with targetOrigin = the allowlisted origin.
+  // An attacker that iframes us inside their own null-origin broker can claim
+  // any parentOrigin they like, but the browser will drop the reply whenever
+  // the real top's origin doesn't match — so the screenshot never leaves.
+  function postToTrustedTop(message) {
+    if (!trustedTopOrigin) return;
+    try {
+      window.top.postMessage(message, trustedTopOrigin);
+    } catch (_error) {}
+  }
+
+  const PICK_CAPABILITIES = ["pick"];
+  const PICK_CHAIN_LENGTH = 4;
+  const PICK_MAX_TEXT_CHARS = 120;
+  const PICK_MAX_HTML_CHARS = 300;
+
+  function truncate(value, maxChars) {
+    return value.length > maxChars ? value.slice(0, maxChars - 1) + "…" : value;
+  }
+
+  function isPickableElement(element) {
+    return (
+      element instanceof Element &&
+      element !== document.documentElement &&
+      element !== document.body
+    );
+  }
+
+  function resolvePickTarget(x, y) {
+    if (!Number.isFinite(x) || !Number.isFinite(y)) return null;
+    const element = document.elementFromPoint(x, y);
+    return isPickableElement(element) ? element.closest("svg") || element : null;
+  }
+
+  function pickLabel(element) {
+    if (element.id) return element.localName + "#" + element.id;
+    return [element.localName].concat(Array.from(element.classList).slice(0, 2)).join(".");
+  }
+
+  // Only attributes that help find the element in source. data-* values and URL
+  // query strings or fragments can carry tokens.
+  const PICK_ATTRIBUTES = new Set([
+    "id",
+    "class",
+    "name",
+    "type",
+    "role",
+    "alt",
+    "aria-label",
+    "href",
+    "src",
+  ]);
+
+  function pickAttributeValue(attribute) {
+    return attribute.name === "href" || attribute.name === "src"
+      ? attribute.value.split(/[?#]/)[0]
+      : attribute.value;
+  }
+
+  function describePickElement(element) {
+    const chain = [];
+    for (
+      let current = element;
+      isPickableElement(current) && chain.length < PICK_CHAIN_LENGTH;
+      current = current.parentElement
+    ) {
+      chain.unshift(current);
+    }
+    const attributes = Array.from(element.attributes)
+      .filter((attribute) => PICK_ATTRIBUTES.has(attribute.name))
+      .map((attribute) => ` ${attribute.name}="${pickAttributeValue(attribute).replace(/"/g, "&quot;")}"`)
+      .join("");
+    const text = (element.innerText || element.textContent || "").replace(/\s+/g, " ").trim();
+    return {
+      chain: chain.map(pickLabel),
+      html: truncate(`<${element.localName}${attributes}>`, PICK_MAX_HTML_CHARS),
+      text: text ? truncate(text, PICK_MAX_TEXT_CHARS) : undefined,
+    };
+  }
+
+  // Hover asks once per frame, and innerText on a large section forces layout,
+  // so only the rect is re-read while the pointer stays on the same element.
+  // Clicks ask for fresh details since the page may have changed the element.
+  let lastPick = null;
+
+  function describePickTarget(element, fresh) {
+    if (fresh || lastPick?.element !== element) {
+      lastPick = { element, details: describePickElement(element) };
+    }
+    const rect = element.getBoundingClientRect();
+    return {
+      rect: { x: rect.left, y: rect.top, width: rect.width, height: rect.height },
+      ...lastPick.details,
+    };
+  }
+
+  function inlineAll(original, clone) {
+    if (original.nodeType !== 1 || clone.nodeType !== 1) return;
+
+    try {
+      const computedStyle = getComputedStyle(original);
+      // cssText on a computed style is the serialized declaration in modern
+      // Chromium/Safari — a single read beats enumerating ~400 longhand
+      // properties. Firefox returns "" here, so we fall back on empty.
+      const serialized = computedStyle.cssText;
+      if (serialized) {
+        clone.style.cssText = serialized;
+      } else {
+        const parts = new Array(computedStyle.length);
+        for (let index = 0; index < computedStyle.length; index += 1) {
+          const property = computedStyle[index];
+          parts[index] = `${property}:${computedStyle.getPropertyValue(property)};`;
+        }
+        clone.style.cssText = parts.join("");
+      }
+    } catch (_error) {}
+
+    const originalChildren = original.children;
+    const clonedChildren = clone.children;
+    for (
+      let index = 0;
+      index < originalChildren.length && index < clonedChildren.length;
+      index += 1
+    ) {
+      inlineAll(originalChildren[index], clonedChildren[index]);
+    }
+  }
+
+  function extractFontUrl(srcValue) {
+    const matches = [
+      ...srcValue.matchAll(
+        /url\(["']?([^"')]+)["']?\)(?:\s*format\(["']?([^"')]+)["']?\))?/gi,
+      ),
+    ];
+    if (matches.length === 0) return null;
+    const woff2 = matches.find((m) => m[2] && m[2].toLowerCase().includes("woff2"));
+    if (woff2) return woff2[1];
+    const woff = matches.find((m) => m[2] && m[2].toLowerCase().includes("woff"));
+    if (woff) return woff[1];
+    return matches[0][1];
+  }
+
+  // Cache resolved font URL -> data URI across captures. Fonts on a page
+  // essentially never change, and a batch run emits multiple captures back to
+  // back — without this we'd refetch + re-base64 every time.
+  const fontDataUriCache = new Map();
+  const SRC_DECLARATION_RE = /src\s*:\s*[^;}]+/i;
+
+  async function fetchAsDataUri(url) {
+    if (fontDataUriCache.has(url)) return fontDataUriCache.get(url);
+    let dataUri = null;
+    try {
+      const response = await fetch(url, { mode: "cors", credentials: "omit" });
+      if (response.ok) {
+        const blob = await response.blob();
+        if (blob.size <= MAX_FONT_BYTES) {
+          dataUri = await new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.onloadend = () =>
+              resolve(typeof reader.result === "string" ? reader.result : null);
+            reader.onerror = () => resolve(null);
+            reader.readAsDataURL(blob);
+          });
+        }
+      }
+    } catch (_error) {
+      dataUri = null;
+    }
+    fontDataUriCache.set(url, dataUri);
+    return dataUri;
+  }
+
+  function collectFontFaceRuleTexts() {
+    const rules = [];
+    for (const sheet of document.styleSheets) {
+      let cssRules;
+      try {
+        cssRules = sheet.cssRules;
+      } catch (_error) {
+        continue;
+      }
+      if (!cssRules) continue;
+      for (const rule of cssRules) {
+        const cssText = rule.cssText || "";
+        if (cssText.startsWith("@font-face")) rules.push(cssText);
+      }
+    }
+    return rules;
+  }
+
+  async function buildInlinedFontCss() {
+    const ruleTexts = collectFontFaceRuleTexts();
+    if (ruleTexts.length === 0) return null;
+
+    const resolved = ruleTexts.map((cssText) => {
+      if (!SRC_DECLARATION_RE.test(cssText)) return null;
+      const srcMatch = cssText.match(/src\s*:\s*([^;}]+)[;}]/i);
+      if (!srcMatch) return null;
+      const url = extractFontUrl(srcMatch[1]);
+      if (!url) return null;
+      try {
+        return { cssText, url: new URL(url, document.baseURI).href };
+      } catch (_error) {
+        return null;
+      }
+    });
+
+    const dataUris = await Promise.all(
+      resolved.map((entry) => (entry ? fetchAsDataUri(entry.url) : Promise.resolve(null))),
+    );
+
+    const inlined = [];
+    let totalBytes = 0;
+    for (let index = 0; index < resolved.length; index += 1) {
+      const entry = resolved[index];
+      const dataUri = dataUris[index];
+      if (!entry || !dataUri) continue;
+      const approxBytes = dataUri.length * 0.75;
+      if (totalBytes + approxBytes > MAX_TOTAL_FONT_BYTES) break;
+      totalBytes += approxBytes;
+      inlined.push(entry.cssText.replace(SRC_DECLARATION_RE, `src: url("${dataUri}")`));
+    }
+    return inlined.length > 0 ? inlined.join("\n") : null;
+  }
+
+  function stripExternal(clone) {
+    const images = clone.querySelectorAll("img");
+    for (let index = 0; index < images.length; index += 1) {
+      const src = images[index].getAttribute("src");
+      if (src && !src.startsWith("data:")) images[index].removeAttribute("src");
+    }
+
+    const elements = clone.querySelectorAll("*");
+    for (let index = 0; index < elements.length; index += 1) {
+      const style = elements[index].style.cssText;
+      if (style && style.includes("url(")) {
+        elements[index].style.cssText = style.replace(
+          /url\(["']?(?!data:)[^)"']*["']?\)/gi,
+          "none",
+        );
+      }
+    }
+  }
+
+  function emitScroll() {
+    scrollRaf = 0;
+    if (!scrollForwarding) return;
+    postToTrustedTop({
+      type: "INLINE_EDIT_SCROLL",
+      scrollX: window.scrollX,
+      scrollY: window.scrollY,
+      capabilities: PICK_CAPABILITIES,
+    });
+  }
+
+  window.addEventListener(
+    "scroll",
+    function () {
+      if (!scrollForwarding || scrollRaf) return;
+      scrollRaf = requestAnimationFrame(emitScroll);
+    },
+    { passive: true, capture: true },
+  );
+
+  async function handleCaptureRequest(event) {
+    const requestId = event.data.requestId;
+    const scrollX = window.scrollX;
+    const scrollY = window.scrollY;
+    const width = window.innerWidth;
+    const height = window.innerHeight;
+
+    function postResult(dataUrl) {
+      postToTrustedTop({
+        type: "INLINE_EDIT_SCREENSHOT_RESULT",
+        requestId,
+        dataUrl,
+        scrollX,
+        scrollY,
+      });
+    }
+
+    try {
+      // Wait for any pending web fonts to resolve so both inline metrics and
+      // the @font-face inlining below see the same loaded faces.
+      if (document.fonts && document.fonts.ready) {
+        try {
+          await document.fonts.ready;
+        } catch (_error) {}
+      }
+
+      const clone = document.documentElement.cloneNode(true);
+      inlineAll(document.documentElement, clone);
+
+      const removedNodes = clone.querySelectorAll("script,link[rel=\"stylesheet\"],style");
+      for (let index = 0; index < removedNodes.length; index += 1) {
+        removedNodes[index].remove();
+      }
+
+      stripExternal(clone);
+
+      // Re-embed web fonts as data-URI @font-face rules so the SVG rasterizer
+      // can resolve them — external font URLs aren't fetched during
+      // foreignObject rendering, which would otherwise force a fallback face
+      // and change text metrics.
+      const inlinedFontCss = await buildInlinedFontCss();
+      if (inlinedFontCss) {
+        const styleEl = document.createElement("style");
+        styleEl.textContent = inlinedFontCss;
+        const head = clone.querySelector("head");
+        if (head) head.appendChild(styleEl);
+        else clone.insertBefore(styleEl, clone.firstChild);
+      }
+
+      const html = new XMLSerializer().serializeToString(clone);
+      const svg =
+        `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}">` +
+        '<foreignObject width="100%" height="100%">' +
+        `<div xmlns="http://www.w3.org/1999/xhtml" style="width:${width}px;height:${height}px;overflow:hidden">` +
+        `<div style="position:relative;left:-${scrollX}px;top:-${scrollY}px">` +
+        html +
+        "</div></div></foreignObject></svg>";
+      const svgUrl = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+      const image = new Image();
+      image.onload = function () {
+        const canvas = document.createElement("canvas");
+        canvas.width = width;
+        canvas.height = height;
+        canvas.getContext("2d").drawImage(image, 0, 0);
+        postResult(canvas.toDataURL("image/png"));
+      };
+      image.onerror = function () {
+        postResult(null);
+      };
+      image.src = svgUrl;
+    } catch (_error) {
+      postResult(null);
+    }
+  }
+
+  window.addEventListener("message", function (event) {
+    if (!event.data) return;
+    // Only accept messages from the direct parent frame. Blocks sibling /
+    // unrelated-window postMessage senders that could otherwise reach us.
+    if (event.source !== window.parent) return;
+
+    const trustedParentOrigin = getTrustedParentOrigin(event);
+    if (!trustedParentOrigin) return;
+    trustedTopOrigin = trustedParentOrigin;
+
+    if (event.data.type === "INLINE_EDIT_PICK") {
+      const element = resolvePickTarget(event.data.x, event.data.y);
+      postToTrustedTop({
+        type: "INLINE_EDIT_PICK_RESULT",
+        seq: event.data.seq,
+        target: element ? describePickTarget(element, event.data.fresh === true) : null,
+      });
+      return;
+    }
+
+    if (event.data.type === "INLINE_EDIT_SCROLL_START") {
+      scrollForwarding = true;
+      emitScroll();
+      return;
+    }
+
+    if (event.data.type === "INLINE_EDIT_SCROLL_STOP") {
+      scrollForwarding = false;
+      if (scrollRaf) cancelAnimationFrame(scrollRaf);
+      scrollRaf = 0;
+      return;
+    }
+
+    if (event.data.type === "INLINE_EDIT_SCROLL_BY") {
+      const { deltaX, deltaY, deltaMode } = event.data;
+      if (!scrollForwarding || !Number.isFinite(deltaX) || !Number.isFinite(deltaY)) return;
+      if (deltaMode !== 0 && deltaMode !== 1 && deltaMode !== 2) return;
+      const lineHeight =
+        parseFloat(getComputedStyle(document.documentElement).lineHeight) || DEFAULT_LINE_HEIGHT;
+      const scaleX = deltaMode === 1 ? lineHeight : deltaMode === 2 ? window.innerWidth : 1;
+      const scaleY = deltaMode === 1 ? lineHeight : deltaMode === 2 ? window.innerHeight : 1;
+      // The selection overlay receives the wheel event instead of this iframe.
+      // Instant scrolling preserves trackpad deltas even on smooth-scroll sites.
+      window.scrollBy({ left: deltaX * scaleX, top: deltaY * scaleY, behavior: "instant" });
+      emitScroll();
+      return;
+    }
+
+    if (event.data.type !== "INLINE_EDIT_CAPTURE_REQUEST") return;
+
+    handleCaptureRequest(event);
+  });
+})();
+
+
+</script></body>
+</html>
